@@ -1,7 +1,8 @@
 (ns bask.bask_test
   (:require
    [clojure.test :refer [deftest is]]
-   [babashka.tasks :refer [shell]]))
+   [babashka.tasks :refer [shell]]
+   [clojure.string :as str]))
 
 (defn prompt+
   [value]
@@ -12,12 +13,14 @@
                             (rand-int 20)
                             (fn [] (rand-nth "qwertyuiopasdfghjklzxcvbnm"))))))
 
+(defn word [] (first (word-seq)))
+
 (deftest ask!-test
   (doseq [w (take 100 (word-seq))]
     (is (= (prompt+ w)
            (:out @(shell {:in w :out :string} "bb examples/simple.clj"))))))
 
 (deftest ask!-multiples-test
-  (println
-    (let [w (str (first (word-seq)) "\n" (first (word-seq)))]
-      (:out @(shell {:in w :out :string} "bb examples/two.clj")))))
+  (let [w1 (word) w2 (word) w (str w1 "\n" w2)]
+    (is (str/ends-with? (last (str/split-lines (:out @(shell {:in w :out :string} "bb examples/two.clj"))))
+                        (pr-str {0 w1 1 w2})))))

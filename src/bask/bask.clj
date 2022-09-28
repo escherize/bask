@@ -24,7 +24,8 @@
 (defn -prompt
   [message]
   (print-prompt! message)
-  (str/trim (read-line)))
+  (let [result (read-line)]
+    (if result (str/trim result) "")))
 
 (defmulti ask!* (fn [x] (:type x)))
 
@@ -136,7 +137,7 @@
   ;; <none> - defaults to text
   ;; :text - prompts for a string
   ;; :number - like text, but must be parseable, or asks again
-  ;; :bool - prompts for true or false
   ;; :select - autocomplete / narrowing for selecting 1 item
   ;; :multi - autocomplete / narrowing for selecting 0, 1, or many items returned as a vector
+
   )
