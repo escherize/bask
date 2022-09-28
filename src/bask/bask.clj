@@ -28,17 +28,18 @@
 
 (defmulti ask!* (fn [x] (:type x)))
 
+
 (defn ->title [question]
-  (c/white (or (:msg question) (str/capitalize (name (:id question))) "")))
+  (c/white (or (:msg question)
+               (when (:id question) (str/capitalize (name (:id question))))
+               "")))
 
 (defmethod ask!* :default
   [question]
-  (cond
-    (string? question) (ask!* {:msg question})
-    (nil? question) (-prompt "")
-    (map? question) (ask!* (-> question
-                               (assoc :type :text)
-                               (assoc :msg (->title question))))))
+  (ask!* (-> question
+             (assoc :type :text)
+             (assoc :msg (->title question))))
+  )
 
 (defmethod ask!* :text
   [{:keys [id] :as question}]
@@ -61,11 +62,12 @@
 
 (defmethod ask!* :select
   [{:keys [id choices initial] :as question}]
+  (println "Question: " question)
   (let [result (->> @(shell {:in (str/join "\n" choices) :out :string}
                             (str "fzf "
                                  "--height 10 "
                                  "--layout reverse "
-                                 (when initial (str "--query=\"" initial "\""))
+                                 (when initial (str "--query=\"" initial "\" "))
                                  "--prompt=\"? " (->title question) ": \""))
                     :out
                     str/trim)]
@@ -79,7 +81,7 @@
                                  "--multi "
                                  "--height 10 "
                                  "--layout reverse "
-                                 (when initial (str "--query=\"" initial "\""))
+                                 (when initial (str "--query=\"" initial "\" "))
                                  "--prompt=\"? " (->title question) ": \""))
                     :out
                     str/split-lines
@@ -87,38 +89,54 @@
     (print-prompt! (->title question)) (println result)
     (if id {id result} result)))
 
+(defn- mappify-q
+  "Questions can be nil, a string, or a map. This converts them all to maps."
+  [q]
+  (cond
+    (string? q) {:msg q}
+    (nil? q)    {:msg ""}
+    (map? q)    q))
+
+(defn prepare-questions
+  "This is called only when asking mulitle questions, will fill in the question's index as its :id, if none is given"
+  [q-maps]
+  (map-indexed
+    (fn [i q-map]
+      (if-let [[_ id-key] (find q-map :id)]
+        q-map
+        (do
+          (println "warning: adding implicit id" i "to question" (str (apply str (take 100 (pr-str q-map))) ".")
+                   "\nDid you mean to give it an :id?")
+          (assoc q-map :id i))))
+    q-maps))
+
 (defn ask!
+  "Ask questions.
+
+  examples:
+
+  (ask! nil) ;; => get a string \"input\"
+  (ask! nil nil) ;; => get a map {0 \"a\" 1 \"b\"}
+  (ask! \"my q\") ;; => get a string \"input\"
+  (ask! {:id :name}) ;; => auto-string type {:name \"input\"}
+  (ask! {:id :first-name :type :text}) ;; {:first-name \"input\"}
+  (ask! {:id :age :msg \"current age\" :type :number}) ;; => {:age 29}
+  (ask! {:id :word :type :select :choices (vec (shuffle (str/split-lines (slurp \"/usr/share/dict/web2\"))))}) ;; => {:word \"apple\"}
+  (ask! {:id :words :type :multi :choices (vec (shuffle (str/split-lines (slurp \"/usr/share/dict/web2\"))))}) ;; => {:words [\"apple\"]}"
+
   ([] (ask!* nil))
-  ([v] (ask!* v))
-  ([& vs] (into {} (mapv ask! (flatten vs)))))
+  ([q] (ask!* (mappify-q q)))
+  ([& qs]
+   (let [prepared-questions (prepare-questions (map mappify-q qs))]
+     (into {} (map ask!* prepared-questions)))))
 
-nil ;; => get a string "input"
-"my q" ;; => get a string "input"
-{:id :name} ;; => auto-string type {:name "input"}
-{:id :first-name :type :text} ;; {:first-name "input"}
-{:id :age :msg "current age" :type :number} ;; => {:age 29}
-{:id :word :type :select :choices (vec (shuffle (str/split-lines (slurp "/usr/share/dict/web2"))))} ;; => {:word "apple"}
-{:id :words :type :multi :choices (vec (shuffle (str/split-lines (slurp "/usr/share/dict/web2"))))} ;; => {:words ["apple"]}
+(comment
 
-
-;; types:
-;; <none> - defaults to text
-;; :text - prompts for a string
-;; :number - like text, but must be parseable, or asks again
-;; :bool - prompts for true or false
-;; :select - autocomplete / narrowing for selecting 1 item
-;; :multi - autocomplete / narrowing for selecting 0, 1, or many items returned as a vector
-
-
-;; (println (pr-str (ask!)))
-;; (println (pr-str (ask! "just a string")))
-;; (println (pr-str (ask! {:id :apple})))
-
-(ask! #_#_{:id :name}
-      {:id :age :type :number :msg "Current age?"}
-      {:id :color
-       :type :select
-       :choices (vec (shuffle (str/split-lines (slurp "/usr/share/dict/web2"))))}
-      {:id :multi-color
-       :type :multi
-       :choices (vec (shuffle (str/split-lines (slurp "/usr/share/dict/web2"))))})
+  ;; types:
+  ;; <none> - defaults to text
+  ;; :text - prompts for a string
+  ;; :number - like text, but must be parseable, or asks again
+  ;; :bool - prompts for true or false
+  ;; :select - autocomplete / narrowing for selecting 1 item
+  ;; :multi - autocomplete / narrowing for selecting 0, 1, or many items returned as a vector
+  )
