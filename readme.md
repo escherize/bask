@@ -1,9 +1,10 @@
 # bask
+
 > (bb ask!)
 
-The quickest and easiset way to get some user input.
+Get user input on the cli
 
-## prompt types
+## Prompt Types
 
 ### `:text` 
 

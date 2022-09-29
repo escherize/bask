@@ -12,7 +12,7 @@
 (defn- install-or-noop [program install-fn]
   (letfn [(can-run? [program] (= 0 (:exit (shell {:out nil} (str "command -v " program)))))]
     (when-not (can-run? program)
-      (println (<< "You don't have {{program}} installed. Installing now..."))
+      (println (<< "You don't have {{program}} installed. Attempting to install now..."))
       (install-fn)
       (println (<< "{{program}} should be installed now. Thanks!")))))
 
@@ -29,7 +29,6 @@
 
 (defmulti ask!* (fn [x] (:type x)))
 
-
 (defn ->title [question]
   (c/white (or (:msg question)
                (when (:id question) (str/capitalize (name (:id question))))
@@ -39,8 +38,7 @@
   [question]
   (ask!* (-> question
              (assoc :type :text)
-             (assoc :msg (->title question))))
-  )
+             (assoc :msg (->title question)))))
 
 (defmethod ask!* :text
   [{:keys [id] :as question}]
@@ -114,16 +112,29 @@
 (defn ask!
   "Ask questions.
 
-  examples:
+  single question examples:
+
+  - if there is no :id, return the value itself
+  - if there is an :id, return a map of {:id value}
 
   (ask! nil) ;; => get a string \"input\"
-  (ask! nil nil) ;; => get a map {0 \"a\" 1 \"b\"}
   (ask! \"my q\") ;; => get a string \"input\"
   (ask! {:id :name}) ;; => auto-string type {:name \"input\"}
   (ask! {:id :first-name :type :text}) ;; {:first-name \"input\"}
   (ask! {:id :age :msg \"current age\" :type :number}) ;; => {:age 29}
   (ask! {:id :word :type :select :choices (vec (shuffle (str/split-lines (slurp \"/usr/share/dict/web2\"))))}) ;; => {:word \"apple\"}
-  (ask! {:id :words :type :multi :choices (vec (shuffle (str/split-lines (slurp \"/usr/share/dict/web2\"))))}) ;; => {:words [\"apple\"]}"
+  (ask! {:id :words :type :multi :choices (vec (shuffle (str/split-lines (slurp \"/usr/share/dict/web2\"))))}) ;; => {:words [\"apple\"]}
+
+  multiple quesiton examples:
+
+  - when missing an :id, the question's id will be located at it's index.
+
+  (ask! {:id :a} {:id b}) ;; => get a map {:a \"one\" :b \"two\"}
+  (ask! nil nil) ;; => get a map {0 \"a\" 1 \"b\"}
+  (ask! {:id :a} nil) ;; => get a map {:a \"one\" 1 \"two\"}
+  (ask! {:id :host :type :text}
+        {:id :port :type :number}) ;; => get a map {:host \"localhost\" :port 2399}
+  "
 
   ([] (ask!* nil))
   ([q] (ask!* (mappify-q q)))
