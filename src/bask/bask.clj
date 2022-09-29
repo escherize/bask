@@ -61,7 +61,7 @@
 
 (defmethod ask!* :select
   [{:keys [id choices initial] :as question}]
-  (println "Question: " question)
+  ;;(println "Question: " question)
   (let [result (->> @(shell {:in (str/join "\n" choices) :out :string}
                             (str "fzf "
                                  "--height 10 "
