@@ -85,7 +85,8 @@
                             (str "fzf "
                                  "--height 10 "
                                  "--layout reverse "
-                                 "--prompt=\"? " (->title question) ": \""))
+                                 "--prompt=\"? " (->title question) ": \" "
+                                 "--no-mouse"))
                     :out
                     str/trim)]
     (print-prompt! (->title question)) (println result)
@@ -102,7 +103,8 @@
                                  "--multi "
                                  "--height 10 "
                                  "--layout reverse "
-                                 "--prompt=\"? " (->title question) ": \""))
+                                 "--prompt=\"? " (->title question) ": \" "
+                                 "--no-mouse"))
                     :out
                     str/split-lines
                     (mapv str/trim))]
@@ -119,7 +121,8 @@
                                  "--height 10 "
                                  "--layout reverse "
                                  (when initial (str "--query=\"" initial "\" "))
-                                 "--prompt=\"? " (->title question) ": \""))
+                                 "--prompt=\"? " (->title question) ": \" "
+                                 "--no-mouse"))
                     :out
                     str/trim
                     (= "true"))]
