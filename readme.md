@@ -70,19 +70,10 @@ The order of the :choices key will decide what initially has focus.
 ``` clojure
 ;; select from choices
 (ask! {:type :select
-       :choices ["red" "green" "blue" "orange"]})
+       :choices ["red" "green" "blue" "orange"]
+       :initial "orange"})
 ;;=uses fzf to select a color=>
 ;;=> "orange"
-
-;; boolean with true highlighted
-(= "true" (ask! {:type :select :initial "true" :choices ["true" "false"]}))
-;;=hit enter=>
-;;=> true
-
-;; boolean with false highlighted
-(= "true" (ask! {:type :select :initial "true" :choices ["false" "true"]}))
-;;=hit enter=>
-;;=> false
 ```
 
 ### `:multi` (select)
@@ -98,8 +89,24 @@ Similar to `:select`, but can select multiple choices with `<tab>` or `<shift + 
 ;;=> {:colors ["red" "orange"]}
 ```
 
+## Multiple questions at once
 
-## Roadmap
+Pass a collection of questions to `ask!`, and it will ask them in sequence, returning a map keyed by `:id`s.
 
-- interactive demo / intro
-- script builder
+If one of the ids are missing, we use the index of the question as a key, so:
+
+``` clojure
+(ask! ["one" {:type :text :msg "two"} "three"])
+;= asks 3 questions =>
+{0 "apple", 1 "orange", 2 "banana"}
+```
+
+# Examples
+
+## Interactive script builder
+
+`bb examples/builder.clj`
+
+## cli asker
+
+`bb examples/ask.clj '["one" "two" "three"]'`

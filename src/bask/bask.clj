@@ -18,21 +18,34 @@
 
 (install-or-noop "fzf" (fn [] (shell "brew install fzf")))
 
-(defn print-prompt! [message]
+(defn- print-prompt! [message]
   (print (str (c/green " ? ") (c/white message) ": ")) (flush))
 
-(defn -prompt
+(defn- -prompt
   [message]
   (print-prompt! message)
   (let [result (read-line)]
     (if result (str/trim result) "")))
 
+;; Types:
+;; <none> - defaults to text
+;; :text - prompts for a string
+;; :number - like text, but must be parseable, or asks again
+;; :select - autocomplete / narrowing for selecting 1 item
+;; :multi - autocomplete / narrowing for selecting 0, 1, or many items returned as a vector
+;; :bool - select true or false
+
 (defmulti ask!* (fn [x] (:type x)))
 
 (defn ->title [question]
-  (c/white (or (:msg question)
-               (when (:id question) (str/capitalize (name (:id question))))
-               "")))
+  (c/white
+   (try (or (:msg question)
+            (when (:id question) (str/capitalize (name (:id question)))))
+        (catch Exception _ ""))))
+
+(defn ->out [{:keys [id] :fn/keys [out] :as q} result]
+  (let [parsed-result (cond-> result out out)]
+    (if id {id parsed-result} parsed-result)))
 
 (defmethod ask!* :default
   [question]
@@ -41,9 +54,9 @@
              (assoc :msg (->title question)))))
 
 (defmethod ask!* :text
-  [{:keys [id] :as question}]
-  (let [result (-prompt (->title question))]
-    (if id {id result} result)))
+  [question]
+  (let [result (->> question ->title -prompt)]
+    (->out question result)))
 
 (defn- number-prompt [question]
   (try (let [n (edn/read-string (-prompt (->title question)))]
@@ -55,38 +68,63 @@
          (number-prompt question))))
 
 (defmethod ask!* :number
-  [{:keys [id] :as question}]
-  (let [result (number-prompt question)]
-    (if id {id result} result)))
+  [question]
+  (->> question number-prompt (->out question)))
+
+(defn- pull-to-front
+  [coll v]
+  (sort-by #(not= % v) coll))
 
 (defmethod ask!* :select
-  [{:keys [id choices initial] :as question}]
+  [{:keys [choices initial] :as question}]
   ;;(println "Question: " question)
-  (let [result (->> @(shell {:in (str/join "\n" choices) :out :string}
+  (let [result (->> @(shell {:in (str/join "\n" (if initial
+                                                  (pull-to-front choices initial)
+                                                  choices))
+                             :out :string}
                             (str "fzf "
                                  "--height 10 "
                                  "--layout reverse "
-                                 (when initial (str "--query=\"" initial "\" "))
                                  "--prompt=\"? " (->title question) ": \""))
                     :out
                     str/trim)]
     (print-prompt! (->title question)) (println result)
-    (if id {id result} result)))
+    (->out question result)))
 
 (defmethod ask!* :multi
-  [{:keys [id choices initial] :as question}]
-  (let [result (->> @(shell {:in (str/join "\n" choices) :out :string}
+  [{:keys [choices initial] :as question}]
+  (println (c/cyan "Use TAB or Shift-TAB to select choice(s)"))
+  (let [result (->> @(shell {:in (str/join "\n"
+                                           (if initial
+                                             (pull-to-front choices initial)
+                                             choices)) :out :string}
                             (str "fzf "
                                  "--multi "
                                  "--height 10 "
                                  "--layout reverse "
-                                 (when initial (str "--query=\"" initial "\" "))
                                  "--prompt=\"? " (->title question) ": \""))
                     :out
                     str/split-lines
                     (mapv str/trim))]
     (print-prompt! (->title question)) (println result)
-    (if id {id result} result)))
+    (->out question result)))
+
+(defmethod ask!* :bool
+  [{:keys [initial] :as question}]
+  (let [result (->> @(shell {:in (if (#{"true" true nil} initial) ;; true first
+                                   "true\nfalse"
+                                   "false\ntrue")
+                             :out :string}
+                            (str "fzf "
+                                 "--height 10 "
+                                 "--layout reverse "
+                                 (when initial (str "--query=\"" initial "\" "))
+                                 "--prompt=\"? " (->title question) ": \""))
+                    :out
+                    str/trim
+                    (= "true"))]
+    (print-prompt! (->title question)) (println result)
+    (->out question result)))
 
 (defn- mappify-q
   "Questions can be nil, a string, or a map. This converts them all to maps."
@@ -96,18 +134,21 @@
     (nil? q)    {:msg ""}
     (map? q)    q))
 
-(defn prepare-questions
-  "This is called only when asking mulitle questions, will fill in the question's index as its :id, if none is given"
+(defn- add-index-ids
+  "fill in the question's index as its :id, if none is given"
   [q-maps]
   (map-indexed
-    (fn [i q-map]
-      (if-let [[_ id-key] (find q-map :id)]
-        q-map
-        (do
-          (println "warning: adding implicit id" i "to question" (str (apply str (take 100 (pr-str q-map))) ".")
-                   "\nDid you mean to give it an :id?")
-          (assoc q-map :id i))))
-    q-maps))
+   (fn [i q-map]
+     (if-let [[_ id-key] (find q-map :id)]
+       q-map
+       (do
+         #_(println "warning: adding implicit id" i "to question" (str (apply str (take 100 (pr-str q-map))) ".")
+                    "\nDid you mean to give it an :id?")
+         (assoc q-map :id i))))
+   q-maps))
+
+(defn- ensure-vec [maybe-sequential]
+  (if (sequential? maybe-sequential) maybe-sequential [maybe-sequential]))
 
 (defn ask!
   "Ask questions.
@@ -129,26 +170,21 @@
 
   - when missing an :id, the question's id will be located at it's index.
 
-  (ask! {:id :a} {:id b}) ;; => get a map {:a \"one\" :b \"two\"}
-  (ask! nil nil) ;; => get a map {0 \"a\" 1 \"b\"}
-  (ask! {:id :a} nil) ;; => get a map {:a \"one\" 1 \"two\"}
-  (ask! {:id :host :type :text}
-        {:id :port :type :number}) ;; => get a map {:host \"localhost\" :port 2399}
+  (ask! [{:id :a} {:id b}]) ;; => get a map {:a \"one\" :b \"two\"}
+  (ask! [nil nil]) ;; => get a map {0 \"a\" 1 \"b\"}
+  (ask! [{:id :a} nil]) ;; => get a map {:a \"one\" 1 \"two\"}
+  (ask! [{:id :host :type :text}
+         {:id :port :type :number}]) ;; => get a map {:host \"localhost\" :port 2399}
+
+
+  - for inputs that select a value, you can set an :initial value that will be highlighted first.
   "
-
   ([] (ask!* nil))
-  ([q] (ask!* (mappify-q q)))
-  ([& qs]
-   (let [prepared-questions (prepare-questions (map mappify-q qs))]
-     (into {} (map ask!* prepared-questions)))))
-
-(comment
-
-  ;; types:
-  ;; <none> - defaults to text
-  ;; :text - prompts for a string
-  ;; :number - like text, but must be parseable, or asks again
-  ;; :select - autocomplete / narrowing for selecting 1 item
-  ;; :multi - autocomplete / narrowing for selecting 0, 1, or many items returned as a vector
-
-  )
+  ([maybe-vec-qs]
+   (let [qs (ensure-vec maybe-vec-qs)
+         prepared-questions (add-index-ids (map mappify-q qs))
+         results (mapv ask!* prepared-questions)]
+     ;; Return the value, when there is one question and it did NOT have an :id
+     (if (and (= 1 (count qs)) (not (contains? (first qs) :id)))
+       (get (first results) 0)
+       (into {} results)))))
