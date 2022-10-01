@@ -2,11 +2,14 @@
 
 > (bb ask!)
 
-Get user input on the cli
+Get user input on the cli.
+
+[![asciicast](https://asciinema.org/a/H9ku50G8la8CJL6lCxnqs1EwC.png)](https://asciinema.org/a/H9ku50G8la8CJL6lCxnqs1EwC)
 
 ## Prompt Types
 
-### `:text` 
+
+### `:text`
 
 ```clojure
 ;; ask with nothing
@@ -39,7 +42,6 @@ Get user input on the cli
 ;;=asks=> First name:_
 ;;=asks=> Last name:_
 ;;=> {:first-name "input1" :last-name "input2"}
-
 ```
 
 ### `:number`
