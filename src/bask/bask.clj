@@ -4,10 +4,9 @@
   (:require
    [babashka.tasks :refer [shell]]
    [selmer.parser :refer [<<]]
-   [babashka.fs :as fs]
    [clojure.edn :as edn]
    [clojure.string :as str]
-   [clojure.term.colors :as c]))
+   [bask.colors :as c]))
 
 (defn- install-or-noop [program install-fn]
   (letfn [(can-run? [program] (= 0 (:exit (shell {:out nil} (str "command -v " program)))))]
