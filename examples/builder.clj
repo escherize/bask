@@ -1,7 +1,6 @@
 (ns builder
   (:require [bask.bask :refer [ask!]]
-            [clojure.term.colors :as c]
-            [clojure.pprint :as pp]
+            [bask.colors :as c]
             [clojure.edn :as edn]
             [clojure.string :as str]))
 
@@ -36,13 +35,13 @@
                                :choices [:text :number :bool :select :multi]
                                :fn/out edn/read-string})
           qs (question-type->fields question-type)
-          _ (pp/pprint ["QS:" qs])
           answer (assoc (ask! qs) :type question-type)]
-      ;; (pp/pprint ["Answer:" answer])
       (swap! *questions conj answer)
       (reset! *continue?
-              (ask! {:type :bool :initial false :msg "Make another question?"}))))
+              (ask! {:type :bool
+                     :initial false
+                     :msg "Make another question?"}))))
 
-  (println (c/cyan "You can use these questions like so: \n"))
+  (println (c/green "You can use these questions like so: \n"))
 
   (str "(ask! " (pr-str @*questions) ")"))

@@ -18,7 +18,7 @@
 (install-or-noop "fzf" (fn [] (shell "brew install fzf")))
 
 (defn- print-prompt! [message]
-  (print (str (c/green " ? ") (c/white message) ": ")) (flush))
+  (print (str (c/green " ? ") message ": ")) (flush))
 
 (defn- -prompt
   [message]
@@ -37,10 +37,16 @@
 (defmulti ask!* (fn [x] (:type x)))
 
 (defn ->title [question]
-  (c/white
-   (try (or (:msg question)
-            (when (:id question) (str/capitalize (name (:id question)))))
-        (catch Exception _ ""))))
+  (try (str (or (:msg question)
+                (when (:id question) (str/capitalize (name (:id question))))
+                (case (:type question)
+                  (:number "number") "#  "
+                  (:text "text") "   "
+                  (:bool "bool") "t/f"
+                  nil))
+            (when (:initial question)
+              (str " (default '" (:initial question) "')")))
+       (catch Exception _ "")))
 
 (defn ->out [{:keys [id] :fn/keys [out] :as q} result]
   (let [parsed-result (cond-> result out out)]
@@ -52,16 +58,31 @@
              (assoc :type :text)
              (assoc :msg (->title question)))))
 
+(defn- fill-initial [initial result]
+  (if (and initial (str/blank? result)) initial result))
+
 (defmethod ask!* :text
-  [question]
-  (let [result (->> question ->title -prompt)]
-    (->out question result)))
+  [{:keys [initial] :as question}]
+  (let [result (->> question ->title -prompt)
+        result-after-initial-applied (if (and initial (str/blank? result)) initial result)]
+    (->out question result-after-initial-applied)))
+
+(defn ->number [s]
+  (or (parse-long s) (parse-double s)))
 
 (defn- number-prompt [question]
-  (try (let [n (edn/read-string (-prompt (->title question)))]
-         (if (number? n)
+  (try (let [prompt-result (-prompt (->title question))
+             n (->number prompt-result)
+             niq (if (string? (:initial question)) (->number (:initial question)) (:initial question))]
+         (cond
+           (and (:initial question) (number? niq) (str/blank? prompt-result))
+           niq
+
+           (number? n)
            n
-           (throw (ex-info "needs a number" {}))))
+
+           :else
+           (throw (ex-info "needs a number, or :initial" {}))))
        (catch Exception _
          (println (c/cyan "Please enter a number"))
          (number-prompt question))))
@@ -101,6 +122,7 @@
                             (str "fzf "
                                  "--multi "
                                  "--height 10 "
+                                 (when initial (str "--query=\"" initial "\" "))
                                  "--layout reverse "
                                  "--prompt=\"? " (->title question) ": \" "
                                  "--no-mouse"))
@@ -190,3 +212,4 @@
      (if (and (= 1 (count qs)) (not (contains? (first qs) :id)))
        (get (first results) 0)
        (into {} results)))))
+

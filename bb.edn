@@ -1,2 +1,1 @@
-{:paths ["src"]
- :deps {clojure-term-colors/clojure-term-colors {:mvn/version "0.1.0"}}}
+{:paths ["src"]}

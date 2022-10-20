@@ -1,58 +1,39 @@
-(ns bask.colors)
+(ns bask.colors
+  (:require [clojure.string :as str]))
 
-;; copied from clojure.term.colors
+(defn- escape [i] (str "\033[" i "m"))
+(def ^:dynamic *disable-colors* false)
+(def reset (escape 0))
 
-(defn- escape-code
-  [i]
-  (str "\033[" i "m"))
+(defn- apply-color [color-code args]
+  (if *disable-colors*
+    (apply str args)
+    (str
+      (str/join (map #(str color-code %) args))
+      reset)))
 
-(def ^:dynamic *colors*
-  "foreground color map"
-  (zipmap [:grey :red :green :yellow
-           :blue :magenta :cyan :white]
-          (map escape-code
-               (range 30 38))))
+(defn bold          [& args] (apply-color "[1m" args))
+(defn dark          [& args] (apply-color "[2m" args))
+(defn underline     [& args] (apply-color "[4m" args))
+(defn blink         [& args] (apply-color "[5m" args))
+(defn reverse-color [& args] (apply-color "[7m" args))
+(defn concealed     [& args] (apply-color "[8m" args))
 
-(def ^:dynamic *highlights*
-  "background color map"
-  (zipmap [:on-grey :on-red :on-green :on-yellow
-           :on-blue :on-magenta :on-cyan :on-white]
-          (map escape-code
-            (range 40 48))))
+(defn gray          [& args] (apply-color "[30m" args))
+(defn grey          [& args] (apply-color "[30m" args))
+(defn red           [& args] (apply-color "[31m" args))
+(defn green         [& args] (apply-color "[32m" args))
+(defn yellow        [& args] (apply-color "[33m" args))
+(defn blue          [& args] (apply-color "[34m" args))
+(defn magenta       [& args] (apply-color "[35m" args))
+(defn cyan          [& args] (apply-color "[36m" args))
+(defn white         [& args] (apply-color "[37m" args))
 
-(def ^:dynamic *attributes*
-  "attributes color map"
-  (into {}
-        (filter (comp not nil? key)
-                (zipmap [:bold, :dark, nil, :underline,
-                         :blink, nil, :reverse-color, :concealed]
-                        (map escape-code (range 1 9))))))
-
-(def ^:dynamic *reset* (escape-code 0))
-
-;; Bind to true to have the colorize functions not apply coloring to
-;; their arguments.
-(def ^:dynamic *disable-colors* nil)
-
-(defmacro define-color-function
-  "define a function `fname' which wraps its arguments with
-        corresponding `color' codes"
-  [fname color]
-  (let [fname (symbol (name fname))
-        args (symbol 'args)]
-    `(defn ~fname [& ~args]
-       (if-not *disable-colors*
-         (str (clojure.string/join (map #(str ~color %) ~args)) ~*reset*)
-         (apply str ~args)))))
-
-(defn define-color-functions-from-map
-  "define functions from color maps."
-  [colormap]
-  (eval `(do ~@(map (fn [[color escape-code]]
-                `(println ~color ~escape-code)
-                `(define-color-function ~color ~escape-code))
-                    colormap))))
-
-(define-color-functions-from-map *colors*)
-(define-color-functions-from-map *highlights*)
-(define-color-functions-from-map *attributes*)
+(defn on-grey       [& args] (apply-color "[40m" args))
+(defn on-red        [& args] (apply-color "[41m" args))
+(defn on-green      [& args] (apply-color "[42m" args))
+(defn on-yellow     [& args] (apply-color "[43m" args))
+(defn on-blue       [& args] (apply-color "[44m" args))
+(defn on-magenta    [& args] (apply-color "[45m" args))
+(defn on-cyan       [& args] (apply-color "[46m" args))
+(defn on-white      [& args] (apply-color "[47m" args))
