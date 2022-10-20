@@ -1,8 +1,6 @@
 # bask
 
-> (bb ask!)
-
-Get user input on the cli.
+Get user input on the cli
 
 [![asciicast](https://asciinema.org/a/H9ku50G8la8CJL6lCxnqs1EwC.png)](https://asciinema.org/a/H9ku50G8la8CJL6lCxnqs1EwC)
 
@@ -67,13 +65,13 @@ Like `:text`, but parses the result is a number. Will continue to ask on invalid
 
 ### `:select`
 
-The order of the :choices key will decide what initially has focus.
+The order of the :choices key will decide what initialy has focus.
 
 ``` clojure
 ;; select from choices
 (ask! {:type :select
        :choices ["red" "green" "blue" "orange"]
-       :initial "orange"})
+       :init "orange"})
 ;;=uses fzf to select a color=>
 ;;=> "orange"
 ```

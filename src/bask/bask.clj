@@ -44,8 +44,8 @@
                   (:text "text") "   "
                   (:bool "bool") "t/f"
                   nil))
-            (when (:initial question)
-              (str " (default '" (:initial question) "')")))
+            (when (:init question)
+              (str " (default '" (:init question) "')")))
        (catch Exception _ "")))
 
 (defn ->out [{:keys [id] :fn/keys [out] :as q} result]
@@ -58,14 +58,14 @@
              (assoc :type :text)
              (assoc :msg (->title question)))))
 
-(defn- fill-initial [initial result]
-  (if (and initial (str/blank? result)) initial result))
+(defn- fill-init [init result]
+  (if (and init (str/blank? result)) init result))
 
 (defmethod ask!* :text
-  [{:keys [initial] :as question}]
+  [{:keys [init] :as question}]
   (let [result (->> question ->title -prompt)
-        result-after-initial-applied (if (and initial (str/blank? result)) initial result)]
-    (->out question result-after-initial-applied)))
+        result-after-init-applied (if (and init (str/blank? result)) init result)]
+    (->out question result-after-init-applied)))
 
 (defn ->number [s]
   (or (parse-long s) (parse-double s)))
@@ -73,16 +73,16 @@
 (defn- number-prompt [question]
   (try (let [prompt-result (-prompt (->title question))
              n (->number prompt-result)
-             niq (if (string? (:initial question)) (->number (:initial question)) (:initial question))]
+             niq (if (string? (:init question)) (->number (:init question)) (:init question))]
          (cond
-           (and (:initial question) (number? niq) (str/blank? prompt-result))
+           (and (:init question) (number? niq) (str/blank? prompt-result))
            niq
 
            (number? n)
            n
 
            :else
-           (throw (ex-info "needs a number, or :initial" {}))))
+           (throw (ex-info "needs a number, or :init" {}))))
        (catch Exception _
          (println (c/cyan "Please enter a number"))
          (number-prompt question))))
@@ -96,10 +96,10 @@
   (sort-by #(not= % v) coll))
 
 (defmethod ask!* :select
-  [{:keys [choices initial] :as question}]
+  [{:keys [choices init] :as question}]
   ;;(println "Question: " question)
-  (let [result (->> @(shell {:in (str/join "\n" (if initial
-                                                  (pull-to-front choices initial)
+  (let [result (->> @(shell {:in (str/join "\n" (if init
+                                                  (pull-to-front choices init)
                                                   choices))
                              :out :string}
                             (str "fzf "
@@ -113,16 +113,16 @@
     (->out question result)))
 
 (defmethod ask!* :multi
-  [{:keys [choices initial] :as question}]
+  [{:keys [choices init] :as question}]
   (println (c/cyan "Use TAB or Shift-TAB to select choice(s)"))
   (let [result (->> @(shell {:in (str/join "\n"
-                                           (if initial
-                                             (pull-to-front choices initial)
+                                           (if init
+                                             (pull-to-front choices init)
                                              choices)) :out :string}
                             (str "fzf "
                                  "--multi "
                                  "--height 10 "
-                                 (when initial (str "--query=\"" initial "\" "))
+                                 (when init (str "--query=\"" init "\" "))
                                  "--layout reverse "
                                  "--prompt=\"? " (->title question) ": \" "
                                  "--no-mouse"))
@@ -133,15 +133,15 @@
     (->out question result)))
 
 (defmethod ask!* :bool
-  [{:keys [initial] :as question}]
-  (let [result (->> @(shell {:in (if (#{"true" true nil} initial) ;; true first
+  [{:keys [init] :as question}]
+  (let [result (->> @(shell {:in (if (#{"true" true nil} init) ;; true first
                                    "true\nfalse"
                                    "false\ntrue")
                              :out :string}
                             (str "fzf "
                                  "--height 10 "
                                  "--layout reverse "
-                                 (when initial (str "--query=\"" initial "\" "))
+                                 (when init (str "--query=\"" init "\" "))
                                  "--prompt=\"? " (->title question) ": \" "
                                  "--no-mouse"))
                     :out
@@ -201,7 +201,7 @@
          {:id :port :type :number}]) ;; => get a map {:host \"localhost\" :port 2399}
 
 
-  - for inputs that select a value, you can set an :initial value that will be highlighted first.
+  - for inputs that select a value, you can set an :init value that will be highlighted first.
   "
   ([] (ask!* nil))
   ([maybe-vec-qs]

@@ -39,7 +39,7 @@
       (swap! *questions conj answer)
       (reset! *continue?
               (ask! {:type :bool
-                     :initial false
+                     :init false
                      :msg "Make another question?"}))))
 
   (println (c/green "You can use these questions like so: \n"))
