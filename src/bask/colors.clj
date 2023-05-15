@@ -30,6 +30,7 @@
 (defn white         [& args] (apply-color "[37m" args))
 
 (defn on-grey       [& args] (apply-color "[40m" args))
+(defn on-gray       [& args] (apply-color "[40m" args))
 (defn on-red        [& args] (apply-color "[41m" args))
 (defn on-green      [& args] (apply-color "[42m" args))
 (defn on-yellow     [& args] (apply-color "[43m" args))
